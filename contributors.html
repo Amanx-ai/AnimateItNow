@@ -729,6 +729,13 @@
           </div>
         </div>
 
+        <!-- Token Settings Button -->
+        <div style="text-align: center; margin: 20px 0;">
+          <button id="tokenSettingsBtn" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">
+            <i class="fas fa-key"></i> GitHub Token Settings
+          </button>
+        </div>
+
         <!-- Search Section -->
         <div class="search-section">
           <div class="search-container">
@@ -798,6 +805,54 @@
       </div>
     </footer>
 
+    <!-- Token Settings Modal -->
+    <div id="tokenModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <h2 style="margin-top: 0; color: var(--primary);">GitHub Token Settings</h2>
+        <p style="color: var(--text-light); margin-bottom: 20px;">
+          Add a GitHub Personal Access Token to increase API rate limits from 60/hour to 5,000/hour.
+        </p>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="font-size: 1rem; margin-top: 0;">How to get a GitHub Token:</h3>
+          <ol style="margin: 10px 0; padding-left: 20px; color: var(--text-light);">
+            <li>Go to <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--primary);">GitHub Settings → Developer settings → Personal access tokens</a></li>
+            <li>Click "Generate new token (classic)"</li>
+            <li>Give it a name (e.g., "AnimateItNow")</li>
+            <li>Select expiration (or "No expiration")</li>
+            <li>Check <strong>public_repo</strong> scope (read-only access)</li>
+            <li>Click "Generate token" and copy it</li>
+            <li>Paste it below</li>
+          </ol>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">GitHub Personal Access Token:</label>
+          <input 
+            type="password" 
+            id="githubTokenInput" 
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;"
+          />
+          <small style="color: var(--text-light); display: block; margin-top: 5px;">
+            Token is stored locally in your browser and never sent to our servers.
+          </small>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="tokenCancelBtn" style="padding: 10px 20px; background: #e9ecef; color: var(--text); border: none; border-radius: 8px; cursor: pointer;">
+            Cancel
+          </button>
+          <button id="tokenSaveBtn" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;">
+            Save Token
+          </button>
+          <button id="tokenRemoveBtn" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+            Remove Token
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Scroll to top button -->
     <button onclick="scrollToTop()" id="scrollBtn" title="Go to top">↑</button>
 
@@ -809,24 +864,83 @@
       let contributorsData = [];
       let filteredContributors = [];
 
-      // GitHub API headers with hardcoded token
-      // IMPORTANT: Make sure this token has 'public_repo' scope and hasn't been revoked
-      const GITHUB_TOKEN = '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'.trim();
-      
-      function getApiHeaders() {
-        // Validate token format
-        if (!GITHUB_TOKEN || GITHUB_TOKEN.length < 10) {
-          console.error('❌ Invalid token format');
-          throw new Error('GitHub token is missing or invalid');
-        }
-        
-        return {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AnimateItNow-Contributors',
-          // Classic tokens use 'token' prefix (not 'Bearer')
-          'Authorization': `token ${GITHUB_TOKEN}`
-        };
+      // GitHub Token Management
+      function getGitHubToken() {
+        return localStorage.getItem('github_token') || null;
       }
+
+      function setGitHubToken(token) {
+        if (token && token.trim()) {
+          localStorage.setItem('github_token', token.trim());
+        } else {
+          localStorage.removeItem('github_token');
+        }
+      }
+
+      function getApiHeaders() {
+        const headers = {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AnimateItNow-Contributors'
+        };
+        const token = getGitHubToken();
+        if (token) {
+          headers['Authorization'] = `token ${token}`;
+        }
+        return headers;
+      }
+
+      // Token Modal Management
+      const tokenModal = document.getElementById('tokenModal');
+      const tokenSettingsBtn = document.getElementById('tokenSettingsBtn');
+      const tokenSaveBtn = document.getElementById('tokenSaveBtn');
+      const tokenCancelBtn = document.getElementById('tokenCancelBtn');
+      const tokenRemoveBtn = document.getElementById('tokenRemoveBtn');
+      const tokenInput = document.getElementById('githubTokenInput');
+
+      // Load existing token
+      const existingToken = getGitHubToken();
+      if (existingToken) {
+        tokenInput.value = existingToken;
+      }
+
+      tokenSettingsBtn.addEventListener('click', () => {
+        tokenModal.style.display = 'flex';
+      });
+
+      tokenCancelBtn.addEventListener('click', () => {
+        tokenModal.style.display = 'none';
+        tokenInput.value = existingToken || '';
+      });
+
+      tokenSaveBtn.addEventListener('click', () => {
+        const token = tokenInput.value.trim();
+        if (token) {
+          setGitHubToken(token);
+          alert('Token saved! Refreshing page...');
+          location.reload();
+        } else {
+          alert('Please enter a valid token');
+        }
+      });
+
+      tokenRemoveBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to remove the token?')) {
+          setGitHubToken('');
+          tokenInput.value = '';
+          alert('Token removed! Refreshing page...');
+          location.reload();
+        }
+      });
+
+      // Close modal on outside click
+      tokenModal.addEventListener('click', (e) => {
+        if (e.target === tokenModal) {
+          tokenModal.style.display = 'none';
+          tokenInput.value = existingToken || '';
+        }
+      });
+
+      // Note: Use getApiHeaders() function instead of apiHeaders constant
 
       // Fetch all pages of contributors
       async function fetchAllContributors() {
@@ -837,33 +951,11 @@
         while (true) {
           try {
             const url = `https://api.github.com/repos/${owner}/${repo}/contributors?per_page=${perPage}&page=${page}`;
-            const headers = getApiHeaders();
-            
-            // Debug: Log request details (remove token from log)
-            console.log(`Fetching contributors page ${page}`);
-            console.log('Headers:', { ...headers, Authorization: 'token ***' });
-            
-            const response = await fetch(url, { 
-              method: 'GET',
-              headers: headers,
-              mode: 'cors',
-              cache: 'no-cache'
-            });
+            const response = await fetch(url, { headers: getApiHeaders() });
 
             // Check rate limit
             const remaining = response.headers.get('X-RateLimit-Remaining');
             const resetTime = response.headers.get('X-RateLimit-Reset');
-            
-            if (response.status === 401) {
-              const errorData = await response.json().catch(() => ({}));
-              console.error('401 Error Details:', errorData);
-              console.error('Response Headers:', {
-                'X-RateLimit-Remaining': remaining,
-                'X-RateLimit-Reset': resetTime,
-                'X-GitHub-Media-Type': response.headers.get('X-GitHub-Media-Type')
-              });
-              throw new Error(`GitHub API authentication failed (401). ${errorData.message || 'Bad credentials. Token may be invalid, expired, or missing required scopes.'}`);
-            }
             
             if (response.status === 403) {
               if (resetTime) {
@@ -874,8 +966,7 @@
             }
 
             if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(`GitHub API error! Status: ${response.status}. ${errorData.message || ''}`);
+              throw new Error(`GitHub API error! Status: ${response.status}`);
             }
 
             const contributors = await response.json();
@@ -920,7 +1011,8 @@
         }
 
           try {
-            console.log("🔄 Fetching contributors with token...");
+            const token = getGitHubToken();
+            console.log(token ? "🔄 Fetching contributors with token..." : "🔄 Fetching contributors (unauthenticated - limited to 60/hour)...");
             const contributors = await fetchAllContributors();
 
           if (!Array.isArray(contributors) || contributors.length === 0) {
